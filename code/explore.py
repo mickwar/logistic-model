@@ -7,8 +7,24 @@ train = pd.read_csv("../data/application_train.csv")
 test = pd.read_csv("../data/application_test.csv")
 
 # Get numerical and categorical columns
-columns_numeric = train.select_dtypes(include = 'number').keys()
-columns_categorical = train.select_dtypes(include = 'object').keys()
+columns_numerical = train.select_dtypes(include = 'number').keys().tolist()
+columns_numerical = columns_numerical[2:]   # Remove ID and TARGET
+
+columns_categorical = train.select_dtypes(include = 'object').keys().tolist()
+
+# Anything with FLAG or RATING needs to be categorical, not numerical
+tmp_rm = []
+for c in columns_numerical:
+    if c.find('FLAG') >= 0 or c.find('RATING') >= 0:
+        tmp_rm.append(c)
+        columns_categorical.append(c)
+
+for t in tmp_rm:
+    columns_numerical.remove(t)
+
+del tmp_rm
+
+
 
 # Count missing values
 train.isna().sum(1).describe()      # Summary of nans
@@ -16,48 +32,35 @@ np.sum(train.isna().sum(1) == 0)    # Number of zero nan rows
 
 ### An in-depth look at the categorical variables
 # Things to look out for:
-#   Categories with very few frequencies -> combine if possible, or may need to remove rows
-#   Too many categories -> combine several small categories
-#   Missing values -> convert to "Other"/"None" category (i.e. a zero in all relevant one-hot encoded columns)
-#   Heavily lopsided categories -> could skew the model to always predict 0 or 1 when the category is present
-for c in columns_categorical:
-    print("--- Summary for {} ---".format(c))
-    print(train[c].describe())
-    print("--- Frequencies ---")
-    print(train[c].value_counts())
-    print("--- Cross-tabulation ---")
-    print(pd.crosstab(train[c], train['TARGET']))
-    print()
+#   Classes with very few frequencies -> combine if possible, or may need to remove rows
+#   Too many classes -> combine several small classes
+#   Missing values -> a zero in all relevant one-hot encoded columns
+#   Heavily lopsided classes -> could skew the model to always predict 0 or 1 when the class is present
+def summarize_categorical_variables(data, columns = None):
+    # Try to get categorical columns
+    if columns is None:
+        columns = data.select_dtypes(include = 'object').keys().tolist()
 
-# Notes:
-#   CODE_GENDER: a single "XNA" category (remove row)
-#   NAME_TYPE_SUITE: low frequency categories
-#       "Group of people" ~ 100
-#       "Other_A" ~ 300
-#       "Other_B" ~ 700
-#       (Combine these categories)
-#       There are also about 500 nans to make into "None" category
-#   NAME_INCOME_TYPE: several low frequency categories adding up to 19 occurrences.
-#       Remove these categories, treat as "None"/"Other"
-#   NAME_EDUCATION_TYPE: Heavily lopsided on low frequency category
-#       All 70 Acedemic degrees had target 0. Removing category for now,
-#       treating as "None"/"Other" (if it looks like a problem for the model,
-#       consider removing the rows altogether)
-#   NAME_FAMILY_STATUS
-#       Remove single "Unknown" row
-#   OCCUPATION_TYPE
-#       Lots of categories and about 40000 missing
-#       Safe to combine low frequency categories into "Other"
-#   ORGANIZATION_TYPE
-#       Similar deal with OCCUPATION_TYPE, but first deal with all
-#       those "Type X"s. (e.g. there are 13 different industry types, but not
-#       all have low frequency). Maybe still just combine low frequencies?
-#   FONDKAPREMONT_MODE: lots of nans
-#   HOUSETYPE_MODE: about half nans
-#   WALLSMATERIAL_MODE: about half nans
-#   EMERGENCYSTATE_MODE: about half nans
+    for c in columns:
+        print("--- Summary for {} ---".format(c))
+        print(data[c].describe())
+        print("--- Frequencies ---")
+        print(data[c].value_counts())
+        
+        try:
+            data['TARGET']
+            print("--- Cross-tabulation ---")
+            print(pd.crosstab(data[c], data['TARGET']))
+        except:
+            pass
 
-### One-hot encoding
+        print()
+
+summarize_categorical_variables(train)
+#summarize_categorical_variables(test)
+
+
+### Function to help create the one-hot encoding transformation
 # Dictionary for mapping category values
 def get_categorical_map(data, min_frequency, columns = None):
 
@@ -66,23 +69,32 @@ def get_categorical_map(data, min_frequency, columns = None):
     # The out['small'] dictionary determines which classes should be re-labeled
     # as 'SMALL_GROUP'
     # If a class is not found in either, then nothing happens (that class is
-    # effectively in a 'None' category
+    # effectively in a 'None' class
     out = {}
-    out['normal'] = {}  # Unaffected categories (normal mapping)
-    out['small'] = {}   # Low frequency categories (combined to Other)
+    out['normal'] = {}  # Unaffected classes (normal mapping)
+    out['small'] = {}   # Low frequency classes (combined to Other)
+    out['remove'] = {}  # For single-class categories
 
     # Try to get categorical columns
     if columns is None:
-        columns = data.select_dtypes(include = 'object').keys()
+        columns = data.select_dtypes(include = 'object').keys().tolist()
 
     for c in columns:
+        # Remove single-class categories
+        out['remove'][c] = False
+        try:
+            if len(np.unique(data[c])) == 1:
+                out['remove'][c] = True
+        except:
+            pass
+
         # Get all classes not having `min_frequency` occurrences
         ind = data[c].value_counts() >= min_frequency
         mapping = data[c].value_counts().keys()[ind]
         out['normal'][c] = [m for m in mapping]
 
         # See if grouping those classes will exceed `min_frequency`
-        # If so, these are placed in the 'other' category
+        # If so, these are placed in the 'SMALL_GROUP' class
         # Otherwise, just making an empty list for that key-value pair
         other = data[c].value_counts().keys()[~ind]
         if np.sum(data[c].value_counts()[~ind]) >= min_frequency:
@@ -93,14 +105,23 @@ def get_categorical_map(data, min_frequency, columns = None):
     return out
 
 
-# Wrapper for using pandas' get_dummies method
+### Wrapper for using Pandas' get_dummies method
+# This does the transformation for the categorical variables
 def make_dummy_variables(data, mapping, columns = None):
 
     # Try to get categorical columns
     if columns is None:
-        columns = data.select_dtypes(include = 'object').keys()
+        columns = data.select_dtypes(include = 'object').keys().tolist()
+    else:
+        columns = columns.copy()
 
     for c in columns:
+        if mapping['remove'][c] is True:
+            data = data.drop(c, 1)
+            columns.remove(c)
+            continue
+            # Need to continue, else we'll get errors
+
         # Set classes not in either 'normal' or 'small' to NaN
         data.loc[~data[c].isin(mapping['normal'][c] + mapping['small'][c]), c] = np.nan
 
@@ -121,15 +142,22 @@ def make_dummy_variables(data, mapping, columns = None):
 # model training doesn't break. Too few occurrences of a class could lead to
 # singularity problems. I arbitrarily chose the minimum class size to be 500.
 
-mapping = get_categorical_map(train, 500)
+categorical_mapping = get_categorical_map(train, 500, columns_categorical)
 
-train = make_dummy_variables(train, mapping)
-test = make_dummy_variables(test, mapping)
-
-# Probably should do the same thing during the cross-validation.
+train = make_dummy_variables(train, categorical_mapping, columns_categorical)
+test = make_dummy_variables(test, categorical_mapping, columns_categorical)
 
 
+### A look at the numerical variables
 
+# Check if we should do a log-transform first:
+#   Minimum value is greater than 0
+#   Maximum value is more than Mean + 5 * SD (or something)
+# Then always standardize
+
+
+# Look at correlations between them, make dummy variables for the NaNs (still
+# keep an eye on frequency)
 
 # Find which columns can straight up be removed
 
@@ -144,3 +172,7 @@ test = make_dummy_variables(test, mapping)
 # Need to check whether test set contains categories not found in
 # the training set
 
+# AUC
+
+# Predictive accuracy (sensitivity, specificity, true/false positive, true/false negative)
+# Confusion matrix
