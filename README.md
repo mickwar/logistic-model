@@ -30,12 +30,6 @@ The data need to be prepared to be used in a model.
 This means that categorical variables need to be one-hot encoded and numerical variables may need to be transformed.
 There may also be the need to remove certain rows from the data set.
 
-Since there are so many variables, it would be too time consuming to go through each one and decide which transformation (whether scaling or one-hot encoding) needs to be done.
-So, based on a set of criteria, we automatically determine the transformation to apply.
-
-This method has the disadvantage of retaining useless variables (i.e. they don't contribute to the overall prediction), but with a fast enough model that point is moot.
-It sure beats cherry-picking every variable.
-
 The goal here is to create a transformation on the training set that would allow us to safely fit a model.
 
 Since the test set needs to be treated as though we have not seen it, the transformations we use must be based solely on the training set.
@@ -46,17 +40,24 @@ This presents a number of problems, especially with the categorical variables:
 
 We need to ensure that both training and test sets have the same number of columns post-transformation.
 
+Since there are so many variables, it would be too time consuming to go through each one and decide which transformation (whether scaling or one-hot encoding) needs to be done.
+So, based on a set of criteria, we automatically determine the transformation to apply.
+
+This method has the disadvantage of retaining useless variables (i.e. they don't contribute to the overall prediction), but with a fast enough model that point is moot.
+We might also miss some outliers during the process.
+But it sure beats cherry-picking every variable.
+
 ### Numerical variables
 
 Every numerical variable (either discrete or continuous) is scaled to have mean 0 and standard deviation 1.
 
-If the standard deviation of a variable was 0, then that variable was removed.
+We then check the following:
+
+- If the standard deviation of a variable was 0, then that variable was removed.
 Such a variable adds no value.
-
-If a strictly positive variable has a range (i.e. difference between the maximum and the minimum) which spans at least 10 standard deviations, then the logarithm is applied first.
+- If a strictly positive variable has a range (i.e. difference between the maximum and the minimum) which spans at least 10 standard deviations, then the logarithm is applied first.
 This will help deal with long-tailed distributions.
-
-If there are missing values, then an indicator (dummy) variable is created.
+- If there are missing values, then an indicator (dummy) variable is created.
 In the dummy variable, a 1 indicates missing and a 0 indicates not missing.
 The missing values in the original variable are set to 0.
 
@@ -71,11 +72,11 @@ Accordingly, we may unknowingly underestimate or overestimate our target probabi
 Another issue that may arise is if a categorical variable is heavily skewed toward `TARGET == 0` or `TARGET == 1` when the class frequency is too low.
 This didn't appear to be a major issue in the training set.
 
-To counter these issues, classes having fewer than 500 occurrences were re-labeled into a new class called `SMALL_GROUP`.
-If the combined class of `SMALL_GROUP` is still below 500, then all those classes are set to `NaN`, the place holder for missing values.
-
-From here, indicator variables are created for each class in the variable where a `1` means class presence and `0` means no class presence.
-If a class is `NaN`, then a `0` is found for each indicator variable, inidicating no classes.
+To counter these issues, we do the following:
+- Classes having fewer than 500 occurrences (arbitrarily chosen) were re-labeled into a new class called `SMALL_GROUP`.
+- If the combined class of `SMALL_GROUP` is still below 500, then all those classes are set to `NaN`, the place holder for missing values.
+- Indicator variables are created for each class in the variable where a `1` means class presence and `0` means no class presence.
+- If a class is `NaN`, then a `0` is found for each indicator variable, inidicating no classes.
 
 ## Procedure
 
