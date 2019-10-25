@@ -114,6 +114,9 @@ def doTransform(data, transform):
     ### Check for extraneous columns
     # If columns are in data which are not in either numerical or categorical,
     # remove those columns
+    for v in set(data.keys()).difference(set(transform['numerical']['columns'] + transform['categorical']['columns'])):
+        col_rm.append(v)
+
 
     ### Numerical processing
     for v in transform['numerical']['columns']:
@@ -137,10 +140,10 @@ def doTransform(data, transform):
             new = pd.DataFrame({"_".join([v, "NaN"]) : (ind) * 1})
             data = pd.concat([data, new], 1)
 
+
     ### Categorical processing
     for v in transform['categorical']['columns']:
         if transform['categorical']['remove'][v] is True:
-            print("{}: Removing variable".format(v))
             col_rm.append(v)
             continue
 
@@ -166,6 +169,12 @@ def doTransform(data, transform):
         # indicator variables for the test set
 
         # Remove original column
+        data = data.drop(v, 1)
+
+
+    ### Remove certain columns
+    for v in col_rm:
+        print("{}: Removing variable".format(v))
         data = data.drop(v, 1)
 
     return data
