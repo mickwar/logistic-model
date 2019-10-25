@@ -41,6 +41,9 @@ def getTransform(data, min_unique, min_frequency):
 
     del tmp_rm
 
+    transform['numerical']['columns'] = numerical
+    transform['categorical']['columns'] = categorical
+
     ### Categorical processing
     # Combine low frequency classes into new class called "SMALL_GROUP"
     transform['categorical']['normal'] = {} # Unaffected classes (normal mapping)
@@ -99,12 +102,12 @@ def getTransform(data, min_unique, min_frequency):
         # Check if any NaNs, need to make indicators if so
         transform['numerical']['dummy'][v] = True if any(data[v].isna()) else False
 
-    return (transform, numerical, categorical)
+    return transform
 
 
 
 # Function for carrying out the transformations
-def doTransform(data, transform, numerical, categorical):
+def doTransform(data, transform):
 
     col_rm = []
 
@@ -113,7 +116,7 @@ def doTransform(data, transform, numerical, categorical):
     # remove those columns
 
     ### Numerical processing
-    for v in numerical:
+    for v in transform['numerical']['columns']:
         if transform['numerical']['sd'] == 0:
             col_rm.append(v)
             continue
@@ -135,7 +138,7 @@ def doTransform(data, transform, numerical, categorical):
             data = pd.concat([data, new], 1)
 
     ### Categorical processing
-    for v in categorical:
+    for v in transform['categorical']['columns']:
         if transform['categorical']['remove'][v] is True:
             print("{}: Removing variable".format(v))
             col_rm.append(v)
@@ -154,15 +157,9 @@ def doTransform(data, transform, numerical, categorical):
                 data.loc[data[v] == m, v] = "SMALL_GROUP"
 
         # Create the indicator variables
-        #for l in transform['categorical']['normal']:
-        for l in pd.unique(data[v]):
-            if not pd.isna(l):
-                try:
-                    colname = str(int(l))
-                except:
-                    colname = str(l)
-                new = pd.DataFrame({"_".join([v, colname]) : (data[v] == l) * 1})
-                data = pd.concat([data, new], 1)
+        for l in transform['categorical']['normal'][v] + transform['categorical']['small'][v]:
+            new = pd.DataFrame({"_".join([v, str(l)]) : (data[v] == l) * 1})
+            data = pd.concat([data, new], 1)
 
         # NOTE: A better option is to use pd.get_dummies(), but I need to make
         # sure that there are still the correct number of columns when creating
