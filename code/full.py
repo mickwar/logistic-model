@@ -1,5 +1,6 @@
 from transformations import *
 from model import *
+from variable_selection import *
 
 
 ### Read in the data
@@ -23,6 +24,31 @@ transform = getTransform(train, 3, 500)
 # Transformed data
 train = doTransform(train, transform)
 test = doTransform(test, transform)
+
+
+### Do the variable selection
+# NOTE: Ideally, this should be part of the transformation. Something to think
+# about for future projects
+var_keep = doVariableSelection(train, target, alpha = 0.95, num_round = 20)
+joined_var_keep = '\t'.join(var_keep)
+
+# Get which variables to keep
+# Need to work with the original variable names and also keep every column
+# for the categorical variable, even if only parts were found to be important
+# enough to keep.
+new_numerical = [v for v in transform['numerical']['columns'] if v in joined_var_keep]
+new_categorical = [v for v in transform['categorical']['columns'] if v in joined_var_keep]
+new_variables = new_numerical + new_categorical
+
+keep = []
+for k in train.keys():
+    for v in new_variables:
+        if v in k:
+            keep.append(k)
+
+# Drop the unimportant columns
+train = train.loc[:, keep]
+test = test.loc[:, keep]
 
 
 ### Do the cross-validation
