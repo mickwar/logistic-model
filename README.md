@@ -6,7 +6,11 @@ The goal of this project is predict a binary variable called `TARGET` as accurat
 
 Given (1) that accuracy is our goal and (2) we have a sizable data set (in number of rows and columns) we will use a binary classifier neural network for our model.
 
+The code is split into several files, which are tied together by the [`code/full.py`](code/full.py) script.
+
 ## Data summary
+
+Code for data exploration can be found in [`code/explore.py`](code/explore.py).
 
 Training data consists of 125000 rows with 122 columns (about 67 Mb), including `ID` and `TARGET`.
 The objective is to make predictions for the binary variable called `TARGET`.
@@ -26,6 +30,8 @@ Of the 125000 rows in the training data
 
 ## Data processing
 
+Code for transforming the data is found in [`code/transformations.py`](code/transformations.py).
+
 The data need to be prepared to be used in a model.
 This means that categorical variables need to be one-hot encoded and numerical variables may need to be transformed.
 There may also be the need to remove certain rows from the data set.
@@ -42,10 +48,6 @@ We need to ensure that both training and test sets have the same number of colum
 
 Since there are so many variables, it would be too time consuming to go through each one and decide which transformation (whether scaling or one-hot encoding) needs to be done.
 So, based on a set of criteria, we automatically determine the transformation to apply.
-
-This method has the disadvantage of retaining useless variables (i.e. they don't contribute to the overall prediction), but with a fast enough model that point is moot.
-We might also miss some outliers during the process.
-But it sure beats cherry-picking every variable.
 
 ### Numerical variables
 
@@ -78,14 +80,31 @@ To counter these issues, we do the following:
 - Indicator variables are created for each class in the variable where a `1` means class presence and `0` means no class presence.
 - If a class is `NaN`, then a `0` is found for each indicator variable, inidicating no classes.
 
-## Procedure
+### Variable Selection
 
-Cross-validation on the training set.
-Split the training set into `k=10` subsets.
-For each subset, fit a model to the nine other subsets and make predictions on the held-out subset.
-The predictions can be compared with the actual `TARGET` so care can be taken to not overfit the model.
+The code is found in [`code/variable_selection.py`](code/variable_selection.py).
+
+We do a rough variable selection using importance measures from an XGBoost model:
+1. Fit the model to the transformed training data
+2. Calculate importance scores
+3. Sort the scores in descending order
+4. Take a cumulative sum of the scores and divide them all by the total
+5. Keep the variables which contribute to 95% of the total importance
+
+This might not be the most theoretically sound, but it's a quick, automatic way of eliminating unnecessary variables.
 
 ## Model
+
+Model architecture and accuracy calculations is found in [`code/model.py`](code/model.py).
+
+### Cross-validation
+
+Split the training set into `K=10` subsets or folds.
+For each subset, fit a model to the nine other subsets and make predictions on the held-out subset.
+The predictions are compared with the actual `TARGET` values.
+
+We're looking for consistency across the models, checking the accuracy, AUC, and an optimal threshold.
+
 
 ## Results
 
