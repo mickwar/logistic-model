@@ -28,33 +28,28 @@ Of the 125000 rows in the training data
 - Most rows have between 5 and 49 missing values.
 - The largest number of missing values in a single row is 61.
 
+Expanding the data set with indicator variables (for missing values and multi-class categorical variables) left us with 312 columns.
+After the variable selection we had 235 columns, most of which were from the indicator variables.
+Details for this expansion and contraction are given in the next section.
+
+There were no major issues---such as typos---found in the data which warranted extensive cleaning.
+
 ## Data processing
 
-Code for transforming the data is found in [`code/transformations.py`](code/transformations.py).
-
-The data need to be prepared to be used in a model.
-This means that categorical variables need to be one-hot encoded and numerical variables may need to be transformed.
-There may also be the need to remove certain rows from the data set.
-
-The goal here is to create a transformation on the training set that would allow us to safely fit a model.
-
-Since the test set needs to be treated as though we have not seen it, the transformations we use must be based solely on the training set.
-This presents a number of problems, especially with the categorical variables:
-- Does the test set contain classes not seen in the training set?
-- Does the test set contain an instance of every class in the training set?
-- How should missing values be treated?
-
-We need to ensure that both training and test sets have the same number of columns post-transformation.
+Data processing takes place in two steps:
+1. Modify the numerical and categorical variables. Found in [`code/transformations.py`](code/transformations.py).
+2. Do a variable selection. Found in [`code/variable_selection.py`](code/variable_selection.py).
 
 Since there are so many variables, it would be too time consuming to go through each one and decide which transformation (whether scaling or one-hot encoding) needs to be done.
 So, based on a set of criteria, we automatically determine the transformation to apply.
+
+Similarly, we want to automatically determine which variables to keep and which to discard.
 
 ### Numerical variables
 
 Every numerical variable (either discrete or continuous) is scaled to have mean 0 and standard deviation 1.
 
 We then check the following:
-
 - If the standard deviation of a variable was 0, then that variable was removed.
 Such a variable adds no value.
 - If a strictly positive variable has a range (i.e. difference between the maximum and the minimum) which spans at least 10 standard deviations, then the logarithm is applied first.
@@ -63,50 +58,58 @@ This will help deal with long-tailed distributions.
 In the dummy variable, a 1 indicates missing and a 0 indicates not missing.
 The missing values in the original variable are set to 0.
 
-In this data set, many of the categorical variables had at least a handful of missing values.
+In this data set, many of the numerical variables had at least a handful of missing values.
 
 ### Categorical variables
 
-Computational problems with fitting the model may arise if a categorical variable has classes which appear infrequently.
-That is, there may be be singularities in our data, possibly leaving us (wrongly) with near zero standard errors.
-Accordingly, we may unknowingly underestimate or overestimate our target probability.
+For categorical variables, we need to make sure there aren't too many unique classes and that each class has a sufficient number of instances to justify fitting a model.
 
-Another issue that may arise is if a categorical variable is heavily skewed toward `TARGET == 0` or `TARGET == 1` when the class frequency is too low.
-This didn't appear to be a major issue in the training set.
-
-To counter these issues, we do the following:
+For each variable, we do the following:
 - Classes having fewer than 500 occurrences (arbitrarily chosen) were re-labeled into a new class called `SMALL_GROUP`.
 - If the combined class of `SMALL_GROUP` is still below 500, then all those classes are set to `NaN`, the place holder for missing values.
 - Indicator variables are created for each class in the variable where a `1` means class presence and `0` means no class presence.
-- If a class is `NaN`, then a `0` is found for each indicator variable, inidicating no classes.
+- If a class is `NaN`, then a `0` is found for each indicator variable, indicating no classes.
 
 ### Variable Selection
 
-The code is found in [`code/variable_selection.py`](code/variable_selection.py).
-
 We do a rough variable selection using importance measures from an XGBoost model:
-1. Fit the model to the transformed training data
-2. Calculate importance scores
-3. Sort the scores in descending order
-4. Take a cumulative sum of the scores and divide them all by the total
-5. Keep the variables which contribute to 95% of the total importance
+- Fit the model to the transformed training data
+- Calculate importance scores
+- Sort the scores in descending order
+- Take a cumulative sum of the scores and divide them all by the total
+- Keep the variables which contribute to 95% of the total importance
 
 This might not be the most theoretically sound, but it's a quick, automatic way of eliminating unnecessary variables.
 
 ## Model
 
-Model architecture and accuracy calculations is found in [`code/model.py`](code/model.py).
+Model architecture and accuracy calculations are found in [`code/model.py`](code/model.py).
 
-### Cross-validation
+The model is a feed-forward neural network with binary cross-entropy for our loss function.
+We use two hidden layers with 32 neurons each.
+Each hidden layer uses a RELU activation function.
+The output layer uses a sigmoid activation to produce a probability.
 
-Split the training set into `K=10` subsets or folds.
-For each subset, fit a model to the nine other subsets and make predictions on the held-out subset.
-The predictions are compared with the actual `TARGET` values.
+We do `K=10` fold cross-validation to make sure we aren't overfitting.
 
-We're looking for consistency across the models, checking the accuracy, AUC, and an optimal threshold.
-
+At 10 epochs, models took about two minutes to fit.
 
 ## Results
+
+For each fold in the cross-validation, we see similar calculations for accuracy, AUC, optimal threshold, and positive predictive value.
+(See comments in `code/full.py` to details.)
+This suggests we are not overfitting to the training data.
+
+We convert the predicted probabilities to binary variables by checking whether the probability exceeds some threshold.
+The optimal threshold is calculated using the ROC curve and is determined to be the value which maximizes the true negative rate times the true positive rate.
+Each k-fold taken together would suggest we use a threshold of 0.09 to maximize this quantity for future predictions.
+
+Our baseline positive predictive value is 8.1%.
+Meaning if we predict every row to be a 1, we would be right about 8.1% of the time (assuming our test set is comparable enough to the training set).
+
+The neural network had an average positive predictive value of about 15.9%, a substantial improvement over the baseline.
+
+Predictions are found under `predictions/`.
 
 ## Using the virtual environment
 
