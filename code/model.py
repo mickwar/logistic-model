@@ -5,9 +5,6 @@ from keras.models import Model
 from keras.layers import Dense, Activation, Input
 from keras import backend as K
 
-#from scipy.stats import norm
-
-
 ### Cross-validation
 # Get new training and testing indexes 
 def crossValidate(data, kfold, num = 1, seed = 0):
@@ -57,7 +54,7 @@ def buildNeuralNetwork(x, y, epochs = 10):
 
 
 def calcAccuracy(y, pred_y):
-    # Compute AUC, sensitivity, specificity, confusion matrix
+    # Compute AUC, sensitivity, specificity
     # Determine optimal threshold
 
     threshold = np.arange(0.001, 0.999, 0.001)
@@ -112,7 +109,9 @@ def calcAccuracy(y, pred_y):
     # F-1 score (harmonic mean of precision and sensitivity)
     F1 = 2 * ppv[index] * tpr[index] / (ppv[index] + tpr[index])
 
-    return (acc, auc, F1, optimal_threshold, tpr[index], tnr[index], ppv[index], npv[index])
+    return (acc, auc, F1, optimal_threshold, \
+        tpr[index], tnr[index], ppv[index], npv[index])
+
 
 
 def plots(fpr, tpr):
