@@ -153,15 +153,15 @@ def doTransform(data, transform):
             print("{}: Setting unseen classes to NaN".format(v))
             data.loc[ind, v] = np.nan
 
-        # Set classes in 'small' to 'SMALL_GROUP'
-        if len(transform['categorical']['small'][v]) > 0:
-            print("{}: Re-labeling low frequency classes to SMALL_GROUP".format(v))
-            for m in transform['categorical']['small'][v]:
-                data.loc[data[v] == m, v] = "SMALL_GROUP"
-
-        # Create the indicator variables
-        for l in transform['categorical']['normal'][v] + transform['categorical']['small'][v]:
+        # Create the indicator variables for normal groups
+        for l in transform['categorical']['normal'][v]:
             new = pd.DataFrame({"_".join([v, str(l)]) : (data[v] == l) * 1})
+            data = pd.concat([data, new], 1)
+
+        # Create the indicator variables for small groups
+        if len(transform['categorical']['small'][v]) > 0:
+            new = pd.DataFrame({"_".join([v, "SMALL_GROUP"]) : \
+                data[v].isin(transform['categorical']['small'][v])})
             data = pd.concat([data, new], 1)
 
         # NOTE: A better option is to use pd.get_dummies(), but I need to make
