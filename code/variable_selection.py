@@ -1,9 +1,10 @@
+### Function for doing automatic variable selection
+
 import xgboost as xgb
 import numpy as np
 from operator import itemgetter
 
 
-### Variable selection
 # Fits an XGBoost model
 # Gets the the largest variables which contribute to alpha% of the importance
 def doVariableSelection(data, target, alpha = 0.95, num_round = 10, params = None):

@@ -1,3 +1,6 @@
+### Functions to print summary statistics for numerical and
+### categorical variables. To help identify issues, make plans
+
 import pandas as pd
 import numpy as np
 
@@ -79,10 +82,8 @@ summarize_categorical_variables(train)
 summarize_numerical_variables(train)
 
 
+### Things to look into later
 #import seaborn as sns
 #import matplotlib.pyplot as plt
-#sns.pairplot(dataset, hue='Class')
-#sns.heatmap(dataset.corr(), annot=True)
-
-# Variable selection?
-# Should have used xgboost to get importance measures
+#sns.pairplot(train, hue='Class')
+#sns.heatmap(train.corr(), annot=True)

@@ -1,3 +1,5 @@
+### This script ties everything together
+
 from transformations import *
 from model import *
 from variable_selection import *

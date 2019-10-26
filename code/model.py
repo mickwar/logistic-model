@@ -1,3 +1,12 @@
+### crossValidate()
+### Randomly splits the training data into new "train" and "test" sets
+###
+### buildNeuralNetwork()
+### Model set up
+###
+### calcAccuracy()
+### Computes accuracy, AUC, and other statistics
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -111,19 +120,4 @@ def calcAccuracy(y, pred_y):
 
     return (acc, auc, F1, optimal_threshold, \
         tpr[index], tnr[index], ppv[index], npv[index])
-
-
-
-def plots(fpr, tpr):
-    # Plot ROC
-    plt.clf()
-    plt.plot(fpr, tpr)
-    plt.plot([0,1], [0,1], '--')
-    plt.xlabel('False positive rate')
-    plt.ylabel('True positive rate')
-    plt.show(block = False)
-
-
-
-
 
