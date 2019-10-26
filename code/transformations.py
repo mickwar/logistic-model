@@ -25,8 +25,8 @@ def getTransform(data, min_unique, min_frequency):
     transform['categorical'] = {}
 
     # Get numerical and categorical columns
-    numerical = train.select_dtypes(include = 'number').keys().tolist()
-    categorical = train.select_dtypes(include = 'object').keys().tolist()
+    numerical = data.select_dtypes(include = 'number').keys().tolist()
+    categorical = data.select_dtypes(include = 'object').keys().tolist()
 
     # Determine which numerical variables (if any) are actually categorical
     # (Pandas won't pick up on it if numerical values are used in placed of strings)
