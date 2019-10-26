@@ -77,3 +77,12 @@ np.sum(train.isna().sum(1) == 0)    # Number of zero nan rows
 # Look for anything weird like typos, outliers
 summarize_categorical_variables(train)
 summarize_numerical_variables(train)
+
+
+#import seaborn as sns
+#import matplotlib.pyplot as plt
+#sns.pairplot(dataset, hue='Class')
+#sns.heatmap(dataset.corr(), annot=True)
+
+# Variable selection?
+# Should have used xgboost to get importance measures
